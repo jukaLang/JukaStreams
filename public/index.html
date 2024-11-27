@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Juka Streams</title>
+  <meta http-equiv="Cache-Control" content="no-cache" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
+  <style>
+    body {
+      background-color: black;
+      color: white;
+      font-family: Arial, sans-serif;
+      text-align: center;
+    }
+    #playButton {
+      padding: 10px 20px;
+      font-size: 18px;
+      color: white;
+      background-color: #1e90ff;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    #playButton:hover {
+      background-color: #1c86ee;
+    }
+    footer {
+      margin-top: 20px;
+      font-size: 14px;
+    }
+    a {
+      color: #1e90ff;
+      text-decoration: none;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <h1>Juka Streams</h1>
+  <button id="playButton">Start Streaming</button>
+  <video id="localVideo" controls style="display:none;"></video>
+
+  <!-- Include HLS.js library -->
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+
+  <script>
+    const playButton = document.getElementById('playButton');
+    const localVideo = document.getElementById('localVideo');
+
+    playButton.addEventListener('click', () => {
+      localVideo.style.display = 'block';
+      playButton.style.display = 'none';
+
+      function getLocalIPFromURL() {
+        const url = new URL(window.location.href);
+        return url.hostname;
+      }
+
+      const localIP = getLocalIPFromURL();
+      const streamURL = `http://${localIP}:8080/playlist.m3u8`;
+
+      if (Hls.isSupported()) {
+        const hls = new Hls({
+          liveSyncDurationCount: 3,
+          liveMaxLatencyDurationCount: 5,
+          lowLatencyMode: true,
+          maxBufferLength: 60,
+          maxMaxBufferLength: 120,
+          maxFragLookUpTolerance: 0.1,
+          startLevel: -1,
+        });
+
+        hls.loadSource(streamURL);
+        hls.attachMedia(localVideo);
+        hls.on(Hls.Events.MANIFEST_PARSED, () => {
+          console.log('Manifest parsed, starting playback');
+          localVideo.play();
+        });
+
+        hls.on(Hls.Events.ERROR, (event, data) => {
+          console.error('HLS Error:', data);
+          if (data.fatal) {
+            switch (data.type) {
+              case Hls.ErrorTypes.NETWORK_ERROR:
+                console.error('Network error encountered:', data);
+                hls.startLoad();
+                break;
+              case Hls.ErrorTypes.MEDIA_ERROR:
+                console.error('Media error encountered:', data);
+                hls.recoverMediaError();
+                break;
+              default:
+                console.error('Unrecoverable error encountered:', data);
+                hls.destroy();
+                break;
+            }
+          }
+        });
+
+        // Ensuring the segments are always fetched fresh
+        setInterval(() => {
+          hls.loadSource(streamURL + '?cacheBuster=' + new Date().getTime());
+          hls.startLoad();
+        }, 2000); // Reload playlist every 2 seconds to ensure fresh segments
+
+      } else if (localVideo.canPlayType('application/vnd.apple.mpegurl')) {
+        localVideo.src = streamURL;
+        localVideo.addEventListener('loadedmetadata', () => {
+          localVideo.play();
+        });
+      } else {
+        console.error('This browser does not support HLS.');
+      }
+    });
+  </script>
+
+  <footer>
+    <p>Made by <a href="https://www.jukalang.com" target="_blank">JukaLang</a></p>
+    <p>Follow us on <a href="https://discord.gg/R9qgJjh5jG" target="_blank">Discord</a></p>
+  </footer>
+</body>
+</html>

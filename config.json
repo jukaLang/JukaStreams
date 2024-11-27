@@ -1,0 +1,6 @@
+{
+    "label":	"Juka Streams",
+    "icon":	"JukaStreams.png",
+    "launch":	"launch.sh",
+    "description":	"Juka Streams by Juka"
+}
